@@ -1,7 +1,8 @@
 (ns snippetbox.core
   (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
-            [org.httpkit.server :as httpd]))
+            [org.httpkit.server :as httpd])
+  (:gen-class))
 
 (defn html-response [code body]
   {:status code
@@ -35,7 +36,7 @@
   (POST "/snippet/create" [] submit)
   (route/not-found not-found))
 
-(defn -main []
+(defn -main [& args]
   (println "Listening on port 5000...")
   (httpd/run-server app {:port 5000}))
 

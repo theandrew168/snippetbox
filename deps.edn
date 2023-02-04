@@ -1,7 +1,13 @@
-{:deps
+{:paths ["src"]
+ :deps
  {com.github.seancorfield/next.jdbc {:mvn/version "1.3.847"}
   compojure/compojure {:mvn/version "1.7.0"}
   hiccup/hiccup {:mvn/version "1.0.5"}
   http-kit/http-kit {:mvn/version "2.6.0"}
   org.clojure/clojure {:mvn/version "1.11.1"}
-  ring/ring-core {:mvn/version "1.9.6"}}}
+  ring/ring-core {:mvn/version "1.9.6"}}
+ 
+ :aliases
+ {:run {:main-opts ["-m" "snippetbox.core"]}
+  :build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.3"}}
+          :ns-default build}}}

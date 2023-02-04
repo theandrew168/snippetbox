@@ -2,8 +2,20 @@
 .SUFFIXES:
 
 .PHONY: default
-default: web
+default: build
+
+.PHONY: build
+build:
+	clj -T:build jar
 
 .PHONY: web
 web:
-	clj -M -m snippetbox.core
+	clj -M:run
+
+.PHONY: migrate
+migrate:
+	@echo 'TODO: apply migrations'
+
+.PHONY: test
+test:
+	@echo 'TODO: run tests'
