@@ -22,7 +22,8 @@
      [:a {:href "/"} "Home"]]
     main
     [:footer "Powered by "
-     [:a {:href "https://clojure.org"} "Clojure"]]]))
+     [:a {:href "https://clojure.org"} "Clojure"]]
+    (html/include-js "/js/main.js")]))
 
 (defn render-index []
   (render-page
