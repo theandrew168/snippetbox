@@ -66,8 +66,10 @@
   (route/not-found not-found))
 
 (defn -main [& args]
-  (println "Listening on port 5000...")
-  (httpd/run-server app {:port 5000}))
+  (let [n-cpu (.availableProcessors (Runtime/getRuntime))]
+    (println "Listening on port 5000...")
+    (httpd/run-server app {:port 5000
+                           :thread (* 2 n-cpu)})))
 
 (comment
 
