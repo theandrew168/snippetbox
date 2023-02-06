@@ -2,8 +2,24 @@
   (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
             [hiccup.page :as html]
+            [next.jdbc :as jdbc]
             [org.httpkit.server :as httpd])
   (:gen-class))
+
+(def db "jdbc:sqlite:snippetbox.db")
+
+(defn migrate [db]
+  (jdbc/execute!
+   db
+   ["CREATE TABLE IF NOT EXISTS snippet (
+     id INTEGER NOT NULL PRIMARY KEY,
+     title TEXT NOT NULL,
+     content TEXT NOT NULL,
+     created DATETIME NOT NULL,
+     expires DATETIME NOT NULL)"]))
+
+(defn wrap-db [handler db]
+  (fn [req] (handler (assoc req :db db))))
 
 (defn render-page [title main]
   (html/html5
@@ -80,5 +96,11 @@
 
   ;; stop the web server
   (server)
+  
+  ;; apply migration(s)
+  (migrate db)
 
+  ;; undo migration(s)
+  (jdbc/execute! db ["DROP TABLE IF EXISTS snippet"])
+  
   :rcf)
