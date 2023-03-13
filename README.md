@@ -12,31 +12,10 @@ make
 ```
 
 ## Local Development
-### Services
-This project depends on various services.
-To develop locally, you'll need to run these services locally somehow or another.
-I find [Docker](https://www.docker.com/) to be a nice tool for this but you can do whatever works best.
-* [PostgreSQL](https://www.postgresql.org/) - for persistent storage
-
-The following command starts the necessary containers:
-```
-docker compose up -d
-```
-
-These containers can be stopped via:
-```
-docker compose down
-```
-
 ### Running
 To start the web server:
 ```
 make web
-```
-
-To apply any pending database migrations:
-```
-make migrate
 ```
 
 ### Testing
