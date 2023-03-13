@@ -16,10 +16,37 @@
      title TEXT NOT NULL,
      content TEXT NOT NULL,
      created DATETIME NOT NULL,
-     expires DATETIME NOT NULL)"]))
+     expires DATETIME NOT NULL
+     )"]))
 
 (defn wrap-db [handler db]
   (fn [req] (handler (assoc req :db db))))
+
+(defn snippet-create [db title content]
+  (jdbc/execute!
+   db
+   ["INSERT INTO snippet (title, content, created, expires)
+     VALUES (?, ?, datetime('now'), datetime('now', '+1 year'))" title content]))
+
+(defn snippet-list [db]
+  (jdbc/execute!
+   db
+   ["SELECT * FROM snippet"]))
+
+(defn snippet-read [db id]
+  (jdbc/execute-one!
+   db
+   ["SELECT * FROM snippet WHERE id = ?" id]))
+
+(defn snippet-update [db id title content]
+  (jdbc/execute!
+   db
+   ["UPDATE snippet SET title = ?, content = ? WHERE id = ?" title content id]))
+
+(defn snippet-delete [db id]
+  (jdbc/execute!
+   db
+   ["DELETE FROM snippet WHERE id = ?" id]))
 
 (defn render-page [title main]
   (html/html5
@@ -59,7 +86,7 @@
 (defn not-found [_]
   (html-response 404  "Not found"))
 
-(defn index [_] 
+(defn index [_]
   (ok (render-index)))
 
 (defn view [req]
@@ -96,11 +123,17 @@
 
   ;; stop the web server
   (server)
-  
+
   ;; apply migration(s)
   (migrate db)
 
   ;; undo migration(s)
   (jdbc/execute! db ["DROP TABLE IF EXISTS snippet"])
-  
+
+  (snippet-create db "Foo" "A tale about foo")
+  (snippet-list db)
+  (snippet-read db 1)
+  (snippet-update db 1 "Bar", "update the content")
+  (snippet-delete db 1)
+
   :rcf)
