@@ -19,9 +19,6 @@
      expires DATETIME NOT NULL
      )"]))
 
-(defn wrap-db [handler db]
-  (fn [req] (handler (assoc req :db db))))
-
 (defn snippet-create [db title content]
   (jdbc/execute!
    db
@@ -54,9 +51,10 @@
    [:head
     [:meta {:charset "utf-8"}]
     [:title (format "%s - Snippetbox" title)]
-    [:link {:rel "shortcut icon" :href "/img/favicon.ico" :type "image/x-icon"}]
-    (html/include-css "/css/main.css")
-    (html/include-css "https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700")]
+    [:link {:href "/img/favicon.ico" :rel "icon"}]
+    [:link {:href "/css/main.css" :rel "stylesheet"}]
+    [:link {:href "https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700" :rel "stylesheet"}]
+    [:script {:src "/js/main.js" :defer true}]]
    [:body
     [:header
      [:h1
@@ -65,8 +63,7 @@
      [:a {:href "/"} "Home"]]
     main
     [:footer "Powered by "
-     [:a {:href "https://clojure.org"} "Clojure"]]
-    (html/include-js "/js/main.js")]))
+     [:a {:href "https://clojure.org"} "Clojure"]]]))
 
 (defn render-index []
   (render-page
@@ -135,5 +132,7 @@
   (snippet-read db 1)
   (snippet-update db 1 "Bar", "update the content")
   (snippet-delete db 1)
+
+  (render-page "Foo" "asdf") 
 
   :rcf)
