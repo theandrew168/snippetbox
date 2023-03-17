@@ -113,7 +113,7 @@
 (defn -main [& args]
   (let [n-cpu (.availableProcessors (Runtime/getRuntime))
         port (-> "PORT" System/getenv (or "5000") Integer/parseInt)]
-    (dt/read-as-local)
+    (dt/read-as-instant)
     (println (format "Listening on port %s..." port))
     (httpd/run-server app {:ip "127.0.0.1"
                            :port port
@@ -127,7 +127,7 @@
   ;; stop the web server
   (server)
 
-  (dt/read-as-local)
+  (dt/read-as-instant)
 
   ;; apply migration(s)
   (migrate db)
