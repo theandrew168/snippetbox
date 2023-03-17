@@ -8,17 +8,17 @@
             [org.httpkit.server :as httpd])
   (:gen-class))
 
-(def db "jdbc:sqlite:snippetbox.db")
+(def db "jdbc:postgresql://postgres:postgres@localhost:5432/postgres")
 
 (defn migrate [db]
   (jdbc/execute!
    db
    ["CREATE TABLE IF NOT EXISTS snippet (
-     id INTEGER NOT NULL PRIMARY KEY,
+     id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
      title TEXT NOT NULL,
      content TEXT NOT NULL,
-     created DATETIME NOT NULL,
-     expires DATETIME NOT NULL
+     created TIMESTAMPTZ NOT NULL,
+     expires TIMESTAMPTZ NOT NULL
      )"]))
 
 (defn snippet-create [db title content expires]
@@ -113,6 +113,7 @@
 (defn -main [& args]
   (let [n-cpu (.availableProcessors (Runtime/getRuntime))
         port (-> "PORT" System/getenv (or "5000") Integer/parseInt)]
+    (dt/read-as-local)
     (println (format "Listening on port %s..." port))
     (httpd/run-server app {:ip "127.0.0.1"
                            :port port
@@ -126,6 +127,8 @@
   ;; stop the web server
   (server)
 
+  (dt/read-as-local)
+
   ;; apply migration(s)
   (migrate db)
 
@@ -137,8 +140,6 @@
   (snippet-read db 1)
   (snippet-update db 1 "Bar", "update the content")
   (snippet-delete db 1)
-
-  (type (:snippet/created (first (snippet-list db))))
 
   (render-page "Foo" "asdf")
 
