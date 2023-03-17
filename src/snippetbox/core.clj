@@ -24,11 +24,10 @@
 (defn snippet-create [db title content expires]
   (let [created (jt/local-date-time)
         expires (jt/plus created (jt/days expires))]
-    (print created)
-    (jdbc/execute!
+    (jdbc/execute-one!
      db
      ["INSERT INTO snippet (title, content, created, expires)
-       VALUES (?, ?, ?, ?)" title content created expires])))
+       VALUES (?, ?, ?, ?) RETURNING id" title content created expires])))
 
 (defn snippet-list [db]
   (jdbc/execute!
@@ -41,12 +40,12 @@
    ["SELECT * FROM snippet WHERE id = ?" id]))
 
 (defn snippet-update [db id title content]
-  (jdbc/execute!
+  (jdbc/execute-one!
    db
    ["UPDATE snippet SET title = ?, content = ? WHERE id = ?" title content id]))
 
 (defn snippet-delete [db id]
-  (jdbc/execute!
+  (jdbc/execute-one!
    db
    ["DELETE FROM snippet WHERE id = ?" id]))
 
