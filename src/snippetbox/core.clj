@@ -2,7 +2,9 @@
   (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
             [hiccup.page :as html]
+            [java-time.api :as jt]
             [next.jdbc :as jdbc]
+            [next.jdbc.date-time :as dt]
             [org.httpkit.server :as httpd])
   (:gen-class))
 
@@ -19,11 +21,14 @@
      expires DATETIME NOT NULL
      )"]))
 
-(defn snippet-create [db title content]
-  (jdbc/execute!
-   db
-   ["INSERT INTO snippet (title, content, created, expires)
-     VALUES (?, ?, datetime('now'), datetime('now', '+1 year'))" title content]))
+(defn snippet-create [db title content expires]
+  (let [created (jt/local-date-time)
+        expires (jt/plus created (jt/days expires))]
+    (print created)
+    (jdbc/execute!
+     db
+     ["INSERT INTO snippet (title, content, created, expires)
+       VALUES (?, ?, ?, ?)" title content created expires])))
 
 (defn snippet-list [db]
   (jdbc/execute!
@@ -127,12 +132,14 @@
   ;; undo migration(s)
   (jdbc/execute! db ["DROP TABLE IF EXISTS snippet"])
 
-  (snippet-create db "Foo" "A tale about foo")
+  (snippet-create db "Foo" "A tale about foo" 7)
   (snippet-list db)
   (snippet-read db 1)
   (snippet-update db 1 "Bar", "update the content")
   (snippet-delete db 1)
 
-  (render-page "Foo" "asdf") 
+  (type (:snippet/created (first (snippet-list db))))
+
+  (render-page "Foo" "asdf")
 
   :rcf)
