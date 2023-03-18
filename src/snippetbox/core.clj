@@ -58,6 +58,17 @@
    conn
    ["DELETE FROM snippet WHERE id = ?" id]))
 
+;; HTML rendering helpers
+
+(defn current-year []
+  (jt/year))
+
+(defn human-date [instant]
+  (let [utc (jt/zoned-date-time instant "UTC")
+        date (jt/format "dd MMM YYYY" utc)
+        time (jt/format "kk:mm" utc)]
+    (str date " at " time)))
+
 ;; HTML rendering
 
 (defn render-page [title main]
@@ -77,38 +88,58 @@
     [:nav
      [:a {:href "/"} "Home"]]
     main
-    [:footer "Powered by "
-     [:a {:href "https://clojure.org"} "Clojure"]]]))
+    [:footer "Powered by " [:a {:href "https://clojure.org"} "Clojure"] " in " (current-year)]]))
 
-(defn render-index []
+(defn render-index [snippets]
   (render-page
    "Home"
    [:main
     [:h2 "Latest Snippets"]
-    [:p "There's nothing to see here yet!"]]))
+    (if (not-empty snippets)
+      [:table
+       [:tr
+        [:th "Title"]
+        [:th "Created"]
+        [:th "ID"]]
+       (for [snippet snippets]
+         [:tr
+          [:td
+           [:a {:href (format "/snippet/view/%d" (:snippet/id snippet))} (:snippet/title snippet)]]
+          [:td (human-date (:snippet/created snippet))]
+          [:td "#" (:snippet/id snippet)]])]
+      [:p "There's nothing to see here... yet!"])]))
+
+(defn render-view [snippet]
+  (render-page
+   (format "Snippet #%d" (:snippet/id snippet))
+   [:main
+    [:div {:class "snippet"}
+     [:div {:class "metadata"}
+      [:strong (:snippet/title snippet)]
+      [:span "#" (:snippet/id snippet)]]
+     [:pre
+      [:code (:snippet/content snippet)]]
+     [:div {:class "metadata"}
+      [:time "Created: " (human-date (:snippet/created snippet))]
+      [:time "Expires: " (human-date (:snippet/expires snippet))]]]]))
 
 ;; base response helpers
 
-(defn html-response [code body]
+(defn response [code headers body]
   {:status code
-   :headers {"Content-Type" "text/html; charset=utf8"}
+   :headers headers
    :body body})
 
+(defn html-response [code body]
+  (response code {"Content-Type" "text/html; charset=utf8"} body))
+
 (defn redirect-response [code body url]
-  {:status code
-   :headers {"Location" url}
-   :body body})
+  (response code {"Location" url} body))
 
 ;; response helpers
 
 (defn ok [body]
   (html-response 200 body))
-
-(defn created []
-  (html-response 201 "Created"))
-
-(defn found [url]
-  (redirect-response 302 "Found" url))
 
 (defn see-other [url]
   (redirect-response 303 "See Other" url))
@@ -118,15 +149,16 @@
 
 ;; handlers
 
-(defn index [_ _]
-  (ok (render-index)))
+(defn index [conn _]
+  (let [snippets (snippet-list conn (jt/instant) 3)]
+    (ok (render-index snippets))))
 
 (defn view [conn req]
   (let [now (jt/instant)
         id (parse-long (-> req :params :id))
         snippet (snippet-read conn id now)]
     (if snippet
-      (render-page "View" snippet)
+      (ok (render-view snippet))
       (not-found req))))
 
 (defn create [_ _]
@@ -180,11 +212,13 @@
   (jdbc/execute! conn ["DROP TABLE IF EXISTS snippet"])
 
   (snippet-create conn "Foo" "A tale about foo" 7)
-  (snippet-list conn)
+  (snippet-list conn (jt/instant) 3)
   (snippet-read conn 1 (jt/instant))
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
 
   (render-page "Foo" "asdf")
+
+  (human-date (jt/instant))
 
   :rcf)
