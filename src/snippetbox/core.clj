@@ -170,9 +170,19 @@
         url (format "/snippet/view/%d" id)]
     (see-other url)))
 
+;; middleware
+
+(defn wrap-secure-headers [handler]
+  (fn [req]
+    (-> (handler req)
+        (assoc-in [:headers "Referrer-Policy"] "origin-when-cross-origin")
+        (assoc-in [:headers "X-Content-Type-Options"] "nosniff")
+        (assoc-in [:headers "X-Frame-Options"] "deny")
+        (assoc-in [:headers "X-XSS-Protection"] "0"))))
+
 ;; routes
 
-(defn init-app [conf]
+(defn init-routes [conf]
   (let [conn (connect (:db conf))]
     (routes
      (GET "/" [] (partial index conn))
@@ -182,6 +192,9 @@
      (route/resources "/")
      (route/not-found not-found))))
 
+(defn init-app [conf]
+  (-> (init-routes conf)
+      (wrap-secure-headers)))
 
 ;; main
 
