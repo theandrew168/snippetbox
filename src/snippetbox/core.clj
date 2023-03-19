@@ -10,7 +10,6 @@
             [next.jdbc.date-time :as jdbc.date-time]
             [org.httpkit.server :as httpd]
             [ring.middleware.params :as ring.params]
-            [ring.util.response :as ring.response]
             [ring.util.request :as ring.request])
   (:gen-class))
 
@@ -42,7 +41,7 @@
 
 ;; data access layer
 
-(defn snippet-create [conn title content expires]
+(defn snippet-create [conn {:keys [title content expires]}]
   (let [now (jt/instant)
         expires (jt/plus now (jt/days expires))]
     (jdbc/execute-one!
@@ -163,26 +162,42 @@
 
 ;; response helpers
 
+(defn response
+  ([status body]
+   (response status body {}))
+  ([status body headers]
+   {:status status
+    :body body
+    :headers headers}))
+
 (defn ok [body]
-  (-> (ring.response/response body)
-      (ring.response/status 200)
-      (ring.response/header "Content-Type" "text/html; charset=utf8")))
+  (response 200 body {"Content-Type" "text/html; charset=utf8"}))
 
 (defn see-other [url]
-  (-> (ring.response/response "See Other")
-      (ring.response/status 303)
-      (ring.response/header "Location" url)))
+  (response 303 "See Other" {"Location" url}))
 
 (defn not-found [_]
-  (-> (ring.response/response "Not Found")
-      (ring.response/status 404)
-      (ring.response/header "Content-Type" "text/html; charset=utf8")))
+  (response 404 "Not Found" {"Content-Type" "text/html; charset=utf8"}))
+
+(defn unprocessable-content [body]
+  (response 422 body {"Content-Type" "text/html; charset=utf8"}))
 
 (defn internal-server-error []
-  (-> (ring.response/response "Interal Server Error")
-      (ring.response/status 500)
-      (ring.response/header "Content-Type" "text/html; charset=utf8")
-      (ring.response/header "Connection" "close")))
+  (response 500 "Internal Server Error" {"Content-Type" "text/html; charset=utf8"
+                                         "Connection" "close"}))
+
+;; input validation
+
+(defn validate-field [form field spec message]
+  (if-not (s/valid? spec (get form field))
+    (assoc-in form [:errors field] message)
+    form))
+
+(defn validate-snippet [form]
+  (-> form
+      (validate-field :title :snippet/title "Invalid title")
+      (validate-field :content :snippet/content "Invalid content")
+      (validate-field :expires :snippet/expires "Invalid expiry")))
 
 ;; handlers
 
@@ -199,29 +214,32 @@
       (not-found req))))
 
 (defn create [_ _]
-  (let [form {:title "foo" :content "bar bar\nasdf" :expires 7 :errors {:title "Invalid title" :content "Invalid content" :expires "Bad expiry"}}]
+  (let [form {:expires 365}]
     (ok (render-create form))))
 
 (defn submit [conn req]
   (let [params (:form-params req)
-        title (get params "title")
-        content (get params "content")
-        expires (parse-long (get params "expires"))
-        res (snippet-create conn title content expires)
-        id (:snippet/id res)
-        url (format "/snippet/view/%d" id)]
-    (see-other url)))
+        form {:title (get params "title")
+              :content (get params "content")
+              :expires (parse-long (get params "expires"))}
+        form (validate-snippet form)]
+    (if (not-empty (:errors form))
+      (unprocessable-content (render-create form))
+      (let [res (snippet-create conn form)
+            id (:snippet/id res)
+            url (format "/snippet/view/%d" id)]
+        (see-other url)))))
 
 ;; middleware
 
 (defn wrap-secure-headers [handler]
-    (let [headers {"Referrer-Policy" "origin-when-cross-origin"
-                   "X-Content-Type-Options" "nosniff"
-                   "X-Frame-Options" "deny"
-                   "X-XSS-Protection" "0"}]
-      (fn [req]
-        (let [resp (handler req)]
-          (assoc-in resp [:headers] (merge headers (:headers resp)))))))
+  (let [headers {"Referrer-Policy" "origin-when-cross-origin"
+                 "X-Content-Type-Options" "nosniff"
+                 "X-Frame-Options" "deny"
+                 "X-XSS-Protection" "0"}]
+    (fn [req]
+      (let [resp (handler req)]
+        (assoc-in resp [:headers] (merge headers (:headers resp)))))))
 
 (defn wrap-access-log [handler]
   (fn [req]
@@ -298,7 +316,7 @@
   ;; undo migration(s)
   (jdbc/execute! conn ["DROP TABLE IF EXISTS snippet"])
 
-  (snippet-create conn "Foo" "A tale about foo" 7)
+  (snippet-create conn {:title "Foo" :content "A tale about foo" :expires 7})
   (snippet-list conn (jt/instant) 3)
   (snippet-read conn 1 (jt/instant))
   (snippet-update conn 1 "Bar", "update the content")
@@ -308,9 +326,23 @@
   (s/conform not-empty "")
   (s/valid? not-empty "asf")
 
+  (s/valid? :snippet/title "")
   (s/valid? :snippet/content "")
   (s/valid? :snippet/expires "1")
 
   (s/explain-data :snippet/expires "1")
+
+  (defn validate-field [form field spec message]
+    (if-not (s/valid? spec (get form field))
+      (assoc-in form [:errors field] message)
+      form))
+
+  (defn validate-snippet [form]
+    (-> form
+        (validate-field :title :snippet/title "Invalid title")
+        (validate-field :content :snippet/content "Invalid content")
+        (validate-field :expires :snippet/expires "Invalid expiry")))
+
+  (validate-snippet {:title "asf" :content "" :expires 6})
 
   :rcf)
