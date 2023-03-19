@@ -7,7 +7,8 @@
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as dt]
             [org.httpkit.server :as httpd]
-            [ring.util.request :as ring.request])
+            [ring.util.request :as ring.request]
+            [ring.util.request :as req])
   (:gen-class))
 
 
@@ -174,13 +175,19 @@
 
 ;; middleware
 
+(defn add-headers [r headers]
+  (reduce (fn [r k] (assoc-in r [:headers k] (get headers k)))
+          r
+          (keys headers)))
+
 (defn wrap-secure-headers [handler]
-  (fn [req]
-    (-> (handler req)
-        (assoc-in [:headers "Referrer-Policy"] "origin-when-cross-origin")
-        (assoc-in [:headers "X-Content-Type-Options"] "nosniff")
-        (assoc-in [:headers "X-Frame-Options"] "deny")
-        (assoc-in [:headers "X-XSS-Protection"] "0"))))
+    (let [headers {"Referrer-Policy" "origin-when-cross-origin"
+                   "X-Content-Type-Options" "nosniff"
+                   "X-Frame-Options" "deny"
+                   "X-XSS-Protection" "0"}]
+      (fn [req]
+        (let [resp (handler req)]
+          (add-headers resp headers)))))
 
 (defn wrap-access-log [handler]
   (fn [req]
@@ -241,11 +248,5 @@
   (snippet-read conn 1 (jt/instant))
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
-
-  (render-page "Foo" "asdf")
-
-  (human-date (jt/instant))
-
-  (s/upper-case (name :get))
 
   :rcf)
