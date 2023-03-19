@@ -150,6 +150,9 @@
 (defn not-found [_]
   (html-response 404 "Not Found"))
 
+(defn internal-server-error []
+  (html-response 500 "Internal Server Error"))
+
 ;; handlers
 
 (defn index [conn _]
@@ -198,6 +201,14 @@
       (flush)
       (handler req))))
 
+(defn wrap-errors [handler]
+  (fn [req]
+    (try (handler req)
+         (catch Exception e
+           (do
+             (.printStackTrace e)
+             (internal-server-error))))))
+
 ;; routes
 
 (defn init-routes [conf]
@@ -212,8 +223,9 @@
 
 (defn init-app [conf]
   (-> (init-routes conf)
-      (wrap-secure-headers)
-      (wrap-access-log)))
+      (c/wrap-routes wrap-secure-headers)
+      (c/wrap-routes wrap-access-log)
+      (c/wrap-routes wrap-errors)))
 
 ;; main
 
