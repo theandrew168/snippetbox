@@ -1,5 +1,7 @@
 (ns snippetbox.core
-  (:require [clojure.string :refer [upper-case]]
+  (:require [clojure.repl :refer [pst]]
+            [clojure.spec.alpha :as s]
+            [clojure.string :refer [upper-case]]
             [compojure.core :as c]
             [compojure.route :as route]
             [hiccup.page :as html]
@@ -12,7 +14,18 @@
             [ring.util.request :as ring.request])
   (:gen-class))
 
+;; TODO
+;; Migration system (ragtime)
+;; SQL query builder (honeysql)
+;; System management (integrant)
+
 (def conf {:db "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"})
+
+;; spec defs
+
+(s/def :snippet/content (s/and string? not-empty))
+(s/def :snippet/title (s/and string? not-empty))
+(s/def :snippet/expires #{1 7 365})
 
 ;; database connection
 
@@ -123,22 +136,28 @@
       [:time "Created: " (human-date (:snippet/created snippet))]
       [:time "Expires: " (human-date (:snippet/expires snippet))]]]]))
 
-(defn render-create []
+(defn render-create [{:keys [title content expires errors]}]
   (render-page
    "Create a New Snippet"
    [:main
     [:form {:action "/snippet/create" :method "POST"}
      [:div
       [:label "Title"]
-      [:input {:type "text" :name "title"}]]
+      (when-let [error (:title errors)]
+        [:label {:class "error"} error])
+      [:input {:type "text" :name "title" :value title}]]
      [:div
       [:label "Content"]
-      [:textarea {:name "content"}]]
+      (when-let [error (:content errors)]
+        [:label {:class "error"} error])
+      [:textarea {:name "content"} content]]
      [:div
       [:label "Delete in:"]
-      [:input {:type "radio" :name "expires" :value "365" :checked true} " One Year"]
-      [:input {:type "radio" :name "expires" :value "7"} " One Week"]
-      [:input {:type "radio" :name "expires" :value "1"} " One Day"]]
+      (when-let [error (:expires errors)]
+        [:label {:class "error"} error])
+      [:input (merge {:type "radio" :name "expires" :value "365"} (when (= 365 expires) {:checked true})) " One Year"]
+      [:input (merge {:type "radio" :name "expires" :value "7"} (when (= 7 expires) {:checked true})) " One Week"]
+      [:input (merge {:type "radio" :name "expires" :value "1"} (when (= 1 expires) {:checked true})) " One Day"]]
      [:div
       [:input {:type "submit" :value "Publish snippet"}]]]]))
 
@@ -180,7 +199,8 @@
       (not-found req))))
 
 (defn create [_ _]
-  (ok (render-create)))
+  (let [form {:title "foo" :content "bar bar\nasdf" :expires 7 :errors {:title "Invalid title" :content "Invalid content" :expires "Bad expiry"}}]
+    (ok (render-create form))))
 
 (defn submit [conn req]
   (let [params (:form-params req)
@@ -217,7 +237,7 @@
     (try (handler req)
          (catch Exception e
            (do
-             (.printStackTrace e)
+             (pst e)
              (internal-server-error))))))
 
 ;; routes
@@ -240,10 +260,10 @@
 
 (defn apply-middleware [routes]
   (-> routes
-      (ring.params/wrap-params)
-      (wrap-secure-headers)
-      (wrap-access-log)
-      (wrap-errors)))
+      ring.params/wrap-params
+      wrap-secure-headers
+      wrap-access-log
+      wrap-errors))
 
 (defn init-app [conf]
   (let [conn (connect-db (:db conf))
@@ -283,5 +303,14 @@
   (snippet-read conn 1 (jt/instant))
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
+
+  (not-empty "sadf")
+  (s/conform not-empty "")
+  (s/valid? not-empty "asf")
+
+  (s/valid? :snippet/content "")
+  (s/valid? :snippet/expires "1")
+
+  (s/explain-data :snippet/expires "1")
 
   :rcf)
