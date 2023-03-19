@@ -1,11 +1,13 @@
 (ns snippetbox.core
-  (:require [compojure.core :refer [routes GET POST]]
+  (:require [clojure.string :as s]
+            [compojure.core :as c]
             [compojure.route :as route]
             [hiccup.page :as html]
             [java-time.api :as jt]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as dt]
-            [org.httpkit.server :as httpd])
+            [org.httpkit.server :as httpd]
+            [ring.util.request :as ring.request])
   (:gen-class))
 
 
@@ -180,21 +182,31 @@
         (assoc-in [:headers "X-Frame-Options"] "deny")
         (assoc-in [:headers "X-XSS-Protection"] "0"))))
 
+(defn wrap-access-log [handler]
+  (fn [req]
+    (let [addr (:remote-addr req)
+          method (s/upper-case (name (:request-method req)))
+          url (ring.request/request-url req)]
+      (printf "%s - %s %s\n" addr method url)
+      (flush)
+      (handler req))))
+
 ;; routes
 
 (defn init-routes [conf]
   (let [conn (connect (:db conf))]
-    (routes
-     (GET "/" [] (partial index conn))
-     (GET "/snippet/view/:id" [] (partial view conn))
-     (GET "/snippet/create" [] (partial create conn))
-     (POST "/snippet/create" [] (partial submit conn))
+    (c/routes
+     (c/GET "/" [] (partial index conn))
+     (c/GET "/snippet/view/:id" [] (partial view conn))
+     (c/GET "/snippet/create" [] (partial create conn))
+     (c/POST "/snippet/create" [] (partial submit conn))
      (route/resources "/")
      (route/not-found not-found))))
 
 (defn init-app [conf]
   (-> (init-routes conf)
-      (wrap-secure-headers)))
+      (wrap-secure-headers)
+      (wrap-access-log)))
 
 ;; main
 
@@ -233,5 +245,7 @@
   (render-page "Foo" "asdf")
 
   (human-date (jt/instant))
+
+  (s/upper-case (name :get))
 
   :rcf)
