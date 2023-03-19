@@ -1,14 +1,14 @@
 (ns snippetbox.core
-  (:require [clojure.string :as s]
+  (:require [clojure.string :refer [upper-case]]
             [compojure.core :as c]
             [compojure.route :as route]
             [hiccup.page :as html]
             [java-time.api :as jt]
             [next.jdbc :as jdbc]
-            [next.jdbc.date-time :as dt]
+            [next.jdbc.date-time :as jdbc.date-time]
             [org.httpkit.server :as httpd]
-            [ring.util.request :as ring.request]
-            [ring.util.request :as req])
+            [ring.util.response :as ring.response]
+            [ring.util.request :as ring.request])
   (:gen-class))
 
 
@@ -17,7 +17,7 @@
 ;; database connection
 
 (defn connect [db]
-  (dt/read-as-instant)
+  (jdbc.date-time/read-as-instant)
   (jdbc/get-datasource db))
 
 (defn migrate [conn]
@@ -126,32 +126,28 @@
       [:time "Created: " (human-date (:snippet/created snippet))]
       [:time "Expires: " (human-date (:snippet/expires snippet))]]]]))
 
-;; base response helpers
-
-(defn response [code headers body]
-  {:status code
-   :headers headers
-   :body body})
-
-(defn html-response [code body]
-  (response code {"Content-Type" "text/html; charset=utf8"} body))
-
-(defn redirect-response [code body url]
-  (response code {"Location" url} body))
-
 ;; response helpers
 
 (defn ok [body]
-  (html-response 200 body))
+  (-> (ring.response/response body)
+      (ring.response/status 200)
+      (ring.response/header "Content-Type" "text/html; charset=utf8")))
 
 (defn see-other [url]
-  (redirect-response 303 "See Other" url))
+  (-> (ring.response/response "See Other")
+      (ring.response/status 303)
+      (ring.response/header "Location" url)))
 
 (defn not-found [_]
-  (html-response 404 "Not Found"))
+  (-> (ring.response/response "Not Found")
+      (ring.response/status 404)
+      (ring.response/header "Content-Type" "text/html; charset=utf8")))
 
 (defn internal-server-error []
-  (html-response 500 "Internal Server Error"))
+  (-> (ring.response/response "Interal Server Error")
+      (ring.response/status 500)
+      (ring.response/header "Content-Type" "text/html; charset=utf8")
+      (ring.response/header "Connection" "close")))
 
 ;; handlers
 
@@ -178,11 +174,6 @@
 
 ;; middleware
 
-(defn add-headers [r headers]
-  (reduce (fn [r k] (assoc-in r [:headers k] (get headers k)))
-          r
-          (keys headers)))
-
 (defn wrap-secure-headers [handler]
     (let [headers {"Referrer-Policy" "origin-when-cross-origin"
                    "X-Content-Type-Options" "nosniff"
@@ -190,12 +181,12 @@
                    "X-XSS-Protection" "0"}]
       (fn [req]
         (let [resp (handler req)]
-          (add-headers resp headers)))))
+          (assoc-in resp [:headers] (merge headers (:headers resp)))))))
 
 (defn wrap-access-log [handler]
   (fn [req]
     (let [addr (:remote-addr req)
-          method (s/upper-case (name (:request-method req)))
+          method (upper-case (name (:request-method req)))
           url (ring.request/request-url req)]
       (printf "%s - %s %s\n" addr method url)
       (flush)
@@ -218,14 +209,15 @@
      (c/GET "/snippet/view/:id" [] (partial view conn))
      (c/GET "/snippet/create" [] (partial create conn))
      (c/POST "/snippet/create" [] (partial submit conn))
+     (c/GET "/error" [] (fn [_] (internal-server-error)))
      (route/resources "/")
-     (route/not-found not-found))))
+     not-found)))
 
 (defn init-app [conf]
   (-> (init-routes conf)
-      (c/wrap-routes wrap-secure-headers)
-      (c/wrap-routes wrap-access-log)
-      (c/wrap-routes wrap-errors)))
+      (wrap-secure-headers)
+      (wrap-access-log)
+      (wrap-errors)))
 
 ;; main
 
