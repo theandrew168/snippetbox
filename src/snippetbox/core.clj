@@ -7,18 +7,14 @@
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as jdbc.date-time]
             [org.httpkit.server :as httpd]
+            [ring.middleware.params :as ring.params]
             [ring.util.response :as ring.response]
             [ring.util.request :as ring.request])
   (:gen-class))
 
-
 (def conf {:db "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"})
 
 ;; database connection
-
-(defn connect [db]
-  (jdbc.date-time/read-as-instant)
-  (jdbc/get-datasource db))
 
 (defn migrate [conn]
   (jdbc/execute!
@@ -89,7 +85,8 @@
      [:h1
       [:a {:href "/"} "Snippetbox"]]]
     [:nav
-     [:a {:href "/"} "Home"]]
+     [:a {:href "/"} "Home"]
+     [:a {:href "/snippet/create"} "Create snippet"]]
     main
     [:footer "Powered by " [:a {:href "https://clojure.org"} "Clojure"] " in " (current-year)]]))
 
@@ -125,6 +122,25 @@
      [:div {:class "metadata"}
       [:time "Created: " (human-date (:snippet/created snippet))]
       [:time "Expires: " (human-date (:snippet/expires snippet))]]]]))
+
+(defn render-create []
+  (render-page
+   "Create a New Snippet"
+   [:main
+    [:form {:action "/snippet/create" :method "POST"}
+     [:div
+      [:label "Title"]
+      [:input {:type "text" :name "title"}]]
+     [:div
+      [:label "Content"]
+      [:textarea {:name "content"}]]
+     [:div
+      [:label "Delete in:"]
+      [:input {:type "radio" :name "expires" :value "365" :checked true} " One Year"]
+      [:input {:type "radio" :name "expires" :value "7"} " One Week"]
+      [:input {:type "radio" :name "expires" :value "1"} " One Day"]]
+     [:div
+      [:input {:type "submit" :value "Publish snippet"}]]]]))
 
 ;; response helpers
 
@@ -164,10 +180,14 @@
       (not-found req))))
 
 (defn create [_ _]
-  (ok "Create snippet..."))
+  (ok (render-create)))
 
-(defn submit [conn _]
-  (let [res (snippet-create conn "O Snail" "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa" 7)
+(defn submit [conn req]
+  (let [params (:form-params req)
+        title (get params "title")
+        content (get params "content")
+        expires (parse-long (get params "expires"))
+        res (snippet-create conn title content expires)
         id (:snippet/id res)
         url (format "/snippet/view/%d" id)]
     (see-other url)))
@@ -202,22 +222,33 @@
 
 ;; routes
 
-(defn init-routes [conf]
-  (let [conn (connect (:db conf))]
-    (c/routes
-     (c/GET "/" [] (partial index conn))
-     (c/GET "/snippet/view/:id" [] (partial view conn))
-     (c/GET "/snippet/create" [] (partial create conn))
-     (c/POST "/snippet/create" [] (partial submit conn))
-     (c/GET "/error" [] (fn [_] (internal-server-error)))
-     (route/resources "/")
-     not-found)))
+; database connection depends on config
+(defn connect-db [db]
+  (jdbc.date-time/read-as-instant)
+  (jdbc/get-datasource db))
 
-(defn init-app [conf]
-  (-> (init-routes conf)
+; routes depend on database connection
+(defn init-routes [conn]
+  (c/routes
+   (c/GET "/" [] (partial index conn))
+   (c/GET "/snippet/view/:id" [] (partial view conn))
+   (c/GET "/snippet/create" [] (partial create conn))
+   (c/POST "/snippet/create" [] (partial submit conn))
+   (c/GET "/error" [] (fn [_] (internal-server-error)))
+   (route/resources "/")
+   not-found))
+
+(defn apply-middleware [routes]
+  (-> routes
+      (ring.params/wrap-params)
       (wrap-secure-headers)
       (wrap-access-log)
       (wrap-errors)))
+
+(defn init-app [conf]
+  (let [conn (connect-db (:db conf))
+        routes (init-routes conn)]
+    (apply-middleware routes)))
 
 ;; main
 
@@ -239,7 +270,7 @@
   (server)
 
   ;; connect to database
-  (def conn (connect (:db conf)))
+  (def conn (connect-db (:db conf)))
 
   ;; apply migration(s)
   (migrate conn)
