@@ -25,15 +25,18 @@
 (defmulti validation-message
   (fn [key] key))
 
-(defmethod validation-message :default [_] "Unknown validation error")
+(defmethod validation-message :default [_]
+  "Unknown validation error")
 
 (s/def ::string? string?)
-(defmethod validation-message ::string? [_] "This field must be a string")
+(defmethod validation-message ::string? [_]
+  "This field must be a string")
 
 (s/def ::not-empty not-empty)
-(defmethod validation-message ::not-empty [_] "This field cannot be blank")
+(defmethod validation-message ::not-empty [_]
+  "This field cannot be blank")
 
-(s/def :snippet/title-length #(<= % 100))
+(s/def :snippet/title-length #(<= (count %) 100))
 (defmethod validation-message :snippet/title-length [_]
   "This field cannot be more than 100 characters long")
 
@@ -209,16 +212,25 @@
 
 ;; input validation
 
-(defn validate-field [form field spec message]
-  (if-not (s/valid? spec (get form field))
-    (assoc-in form [:errors field] message)
-    form))
+(defn problems [spec value]
+  (-> (s/explain-data spec value)
+      :clojure.spec.alpha/problems))
 
-(defn validate-snippet [form]
-  (-> form
-      (validate-field :title :snippet/title "Invalid title")
-      (validate-field :content :snippet/content "Invalid content")
-      (validate-field :expires :snippet/expires "Invalid expiry")))
+(defn simplify [{:keys [path via]}]
+  {:path (last path) :via (last via)})
+
+(defn messages [problems]
+  (reduce #(assoc %1 (:path %2) (validation-message (:via %2)))
+          {}
+          problems))
+
+(defn errors [spec value]
+  (->> (problems spec value)
+       (map simplify)
+       messages))
+
+(defn validate [spec value]
+  (assoc value :errors (errors spec value)))
 
 ;; handlers
 
@@ -243,7 +255,7 @@
         form {:title (get params "title")
               :content (get params "content")
               :expires (parse-long (get params "expires"))}
-        form (validate-snippet form)]
+        form (validate :snippet/form form)]
     (if (not-empty (:errors form))
       (unprocessable-content (render-create form))
       (let [res (snippet-create conn form)
@@ -343,25 +355,8 @@
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
 
-  (defn problems [spec value]
-    (-> (s/explain-data spec value)
-        :clojure.spec.alpha/problems))
-  
-  (defn simplify [{:keys [in via]}]
-    {:in (last in) :via (last via)})
-  
-  (defn reasons [spec value]
-    (->> (problems spec value)
-         (map simplify)))
-  
-  (defn errors [spec value]
-    (reduce #(assoc %1 (:in %2) (validation-message (:via %2)))
-            {}
-            (reasons spec value)))
-
   (s/explain-data :snippet/form {:title 123 :content "asdf" :expires 1})
-  (problems :snippet/form {:title 123 :content "" :expires 1})
-  (reasons :snippet/form {:title 123 :content "" :expires 1})
-  (errors :snippet/form {:title "" :content "" :expires 1})
+  (problems :snippet/form {:title "123" :content "" :expires 1})
+  (validate :snippet/form {:title "123" :content "asdf" :expires 1})
 
   :rcf)
