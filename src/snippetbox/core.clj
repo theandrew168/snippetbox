@@ -22,9 +22,30 @@
 
 ;; spec defs
 
-(s/def :snippet/content (s/and string? not-empty))
-(s/def :snippet/title (s/and string? not-empty))
-(s/def :snippet/expires #{1 7 365})
+(defmulti validation-message
+  (fn [key] key))
+
+(defmethod validation-message :default [_] "Unknown validation error")
+
+(s/def ::string? string?)
+(defmethod validation-message ::string? [_] "This field must be a string")
+
+(s/def ::not-empty not-empty)
+(defmethod validation-message ::not-empty [_] "This field cannot be blank")
+
+(s/def :snippet/title-length #(<= % 100))
+(defmethod validation-message :snippet/title-length [_]
+  "This field cannot be more than 100 characters long")
+
+(s/def :snippet/expires-options #{1 7 365})
+(defmethod validation-message :snippet/expires-options [_]
+  "This field must equal 1, 7 or 365")
+
+(s/def :snippet/content (s/and ::string? ::not-empty))
+(s/def :snippet/title (s/and ::string? ::not-empty :snippet/title-length))
+(s/def :snippet/expires :snippet/expires-options)
+
+(s/def :snippet/form (s/keys :req-un [:snippet/content :snippet/title :snippet/expires]))
 
 ;; database connection
 
@@ -322,27 +343,25 @@
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
 
-  (not-empty "sadf")
-  (s/conform not-empty "")
-  (s/valid? not-empty "asf")
+  (defn problems [spec value]
+    (-> (s/explain-data spec value)
+        :clojure.spec.alpha/problems))
+  
+  (defn simplify [{:keys [in via]}]
+    {:in (last in) :via (last via)})
+  
+  (defn reasons [spec value]
+    (->> (problems spec value)
+         (map simplify)))
+  
+  (defn errors [spec value]
+    (reduce #(assoc %1 (:in %2) (validation-message (:via %2)))
+            {}
+            (reasons spec value)))
 
-  (s/valid? :snippet/title "")
-  (s/valid? :snippet/content "")
-  (s/valid? :snippet/expires "1")
-
-  (s/explain-data :snippet/expires "1")
-
-  (defn validate-field [form field spec message]
-    (if-not (s/valid? spec (get form field))
-      (assoc-in form [:errors field] message)
-      form))
-
-  (defn validate-snippet [form]
-    (-> form
-        (validate-field :title :snippet/title "Invalid title")
-        (validate-field :content :snippet/content "Invalid content")
-        (validate-field :expires :snippet/expires "Invalid expiry")))
-
-  (validate-snippet {:title "asf" :content "" :expires 6})
+  (s/explain-data :snippet/form {:title 123 :content "asdf" :expires 1})
+  (problems :snippet/form {:title 123 :content "" :expires 1})
+  (reasons :snippet/form {:title 123 :content "" :expires 1})
+  (errors :snippet/form {:title "" :content "" :expires 1})
 
   :rcf)
