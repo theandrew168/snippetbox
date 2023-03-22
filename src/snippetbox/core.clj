@@ -28,6 +28,10 @@
 (defmethod validation-message :default [_]
   "Unknown validation error")
 
+(s/def ::integer? integer?)
+(defmethod validation-message ::integer? [_]
+  "This field must be an integer")
+
 (s/def ::string? string?)
 (defmethod validation-message ::string? [_]
   "This field must be a string")
@@ -46,7 +50,7 @@
 
 (s/def :snippet/content (s/and ::string? ::not-empty))
 (s/def :snippet/title (s/and ::string? ::not-empty :snippet/title-length))
-(s/def :snippet/expires :snippet/expires-options)
+(s/def :snippet/expires (s/and ::integer? :snippet/expires-options))
 
 (s/def :snippet/form (s/keys :req-un [:snippet/content :snippet/title :snippet/expires]))
 
@@ -220,7 +224,7 @@
   {:path (last path) :via (last via)})
 
 (defn messages [problems]
-  (reduce #(assoc %1 (:path %2) (validation-message (:via %2)))
+  (reduce #(assoc %1 (or (:path %2) :error) (validation-message (:via %2)))
           {}
           problems))
 
@@ -358,5 +362,6 @@
   (s/explain-data :snippet/form {:title 123 :content "asdf" :expires 1})
   (problems :snippet/form {:title "123" :content "" :expires 1})
   (validate :snippet/form {:title "123" :content "asdf" :expires 1})
+  (validate :snippet/form {:title "123" :content "asdf"})
 
   :rcf)
