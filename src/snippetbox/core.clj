@@ -1,6 +1,5 @@
 (ns snippetbox.core
   (:require [clojure.repl :refer [pst]]
-            [clojure.spec.alpha :as s]
             [clojure.string :refer [upper-case]]
             [compojure.core :as c]
             [compojure.route :as route]
@@ -19,40 +18,6 @@
 ;; System management (integrant)
 
 (def conf {:db "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"})
-
-;; spec defs
-
-(defmulti validation-message
-  (fn [key] key))
-
-(defmethod validation-message :default [_]
-  "Unknown validation error")
-
-(s/def ::integer? integer?)
-(defmethod validation-message ::integer? [_]
-  "This field must be an integer")
-
-(s/def ::string? string?)
-(defmethod validation-message ::string? [_]
-  "This field must be a string")
-
-(s/def ::not-empty not-empty)
-(defmethod validation-message ::not-empty [_]
-  "This field cannot be blank")
-
-(s/def :snippet/title-length #(<= (count %) 100))
-(defmethod validation-message :snippet/title-length [_]
-  "This field cannot be more than 100 characters long")
-
-(s/def :snippet/expires-options #{1 7 365})
-(defmethod validation-message :snippet/expires-options [_]
-  "This field must equal 1, 7 or 365")
-
-(s/def :snippet/content (s/and ::string? ::not-empty))
-(s/def :snippet/title (s/and ::string? ::not-empty :snippet/title-length))
-(s/def :snippet/expires (s/and ::integer? :snippet/expires-options))
-
-(s/def :snippet/form (s/keys :req-un [:snippet/content :snippet/title :snippet/expires]))
 
 ;; database connection
 
@@ -216,25 +181,17 @@
 
 ;; input validation
 
-(defn problems [spec value]
-  (-> (s/explain-data spec value)
-      :clojure.spec.alpha/problems))
+(defn validate [m key pred message]
+  (if (pred (get m key))
+    m
+    (assoc-in m [:errors key] message)))
 
-(defn simplify [{:keys [path via]}]
-  {:path (last path) :via (last via)})
-
-(defn messages [problems]
-  (reduce #(assoc %1 (or (:path %2) :error) (validation-message (:via %2)))
-          {}
-          problems))
-
-(defn errors [spec value]
-  (->> (problems spec value)
-       (map simplify)
-       messages))
-
-(defn validate [spec value]
-  (assoc value :errors (errors spec value)))
+(defn validate-snippet [snippet]
+  (-> snippet
+      (validate :title not-empty "This field cannot be blank")
+      (validate :title #(<= (count %) 100) "This field cannot be more than 100 characters long")
+      (validate :content not-empty "This field cannot be blank")
+      (validate :expires #{1 7 365} "This field must equal 1, 7, or 365")))
 
 ;; handlers
 
@@ -259,7 +216,7 @@
         form {:title (get params "title")
               :content (get params "content")
               :expires (parse-long (get params "expires"))}
-        form (validate :snippet/form form)]
+        form (validate-snippet form)]
     (if (not-empty (:errors form))
       (unprocessable-content (render-create form))
       (let [res (snippet-create conn form)
@@ -359,9 +316,6 @@
   (snippet-update conn 1 "Bar", "update the content")
   (snippet-delete conn 1)
 
-  (s/explain-data :snippet/form {:title 123 :content "asdf" :expires 1})
-  (problems :snippet/form {:title "123" :content "" :expires 1})
-  (validate :snippet/form {:title "123" :content "asdf" :expires 1})
-  (validate :snippet/form {:title "123" :content "asdf"})
-
+  (validate {:title ""} :title not-empty "must not be empty")
+  
   :rcf)
