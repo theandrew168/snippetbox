@@ -9,28 +9,15 @@
             [next.jdbc.date-time :as jdbc.date-time]
             [org.httpkit.server :as httpd]
             [ring.middleware.params :as ring.params]
-            [ring.util.request :as ring.request])
+            [ring.util.request :as ring.request]
+            [snippetbox.migrate :as migrate])
   (:gen-class))
 
 ;; TODO
-;; Migration system (ragtime)
 ;; SQL query builder (honeysql)
 ;; System management (integrant)
 
 (def conf {:db "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"})
-
-;; database connection
-
-(defn migrate [conn]
-  (jdbc/execute!
-   conn
-   ["CREATE TABLE IF NOT EXISTS snippet (
-     id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-     title TEXT NOT NULL,
-     content TEXT NOT NULL,
-     created TIMESTAMPTZ NOT NULL,
-     expires TIMESTAMPTZ NOT NULL
-     )"]))
 
 ;; data access layer
 
@@ -267,7 +254,7 @@
    (c/GET "/snippet/create" [] (partial create conn))
    (c/POST "/snippet/create" [] (partial submit conn))
    (c/GET "/error" [] (fn [_] (internal-server-error)))
-   (route/resources "/")
+   (route/resources "/" {:root "public"})
    not-found))
 
 (defn apply-middleware [routes]
@@ -277,38 +264,36 @@
       wrap-access-log
       wrap-errors))
 
-(defn init-app [conf]
-  (let [conn (connect-db (:db conf))
-        routes (init-routes conn)]
-    (apply-middleware routes)))
-
 ;; main
 
 (defn -main [& args]
   (let [n-cpu (.availableProcessors (Runtime/getRuntime))
         port (-> "PORT" System/getenv (or "5000") Integer/parseInt)
-        app (init-app conf)]
+        conn (connect-db (:db conf))
+        app (apply-middleware (init-routes conn))]
+    (println "Applying migrations...")
+    (migrate/migrate! conn "migrations")
     (println (format "Listening on port %s..." port))
     (httpd/run-server app {:ip "127.0.0.1"
                            :port port
                            :thread (* 2 n-cpu)})))
 
 (comment
+  
+  ;; connect to database
+  (def conn (connect-db (:db conf)))
+
+  ;; init the application
+  (def app (apply-middleware (init-routes conn)))
 
   ;; start the web server
-  (def server (httpd/run-server (init-app conf) {:ip "127.0.0.1" :port 5000}))
+  (def server (httpd/run-server app {:ip "127.0.0.1" :port 5000}))
 
   ;; stop the web server
   (server)
 
-  ;; connect to database
-  (def conn (connect-db (:db conf)))
-
   ;; apply migration(s)
-  (migrate conn)
-
-  ;; undo migration(s)
-  (jdbc/execute! conn ["DROP TABLE IF EXISTS snippet"])
+  (migrate/migrate! conn "migrations")
 
   (snippet-create conn {:title "Foo" :content "A tale about foo" :expires 7})
   (snippet-list conn (jt/instant) 3)

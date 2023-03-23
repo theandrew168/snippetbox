@@ -7,6 +7,7 @@
   http-kit/http-kit {:mvn/version "2.6.0"}
   org.clojure/clojure {:mvn/version "1.11.1"}
   org.postgresql/postgresql {:mvn/version "42.5.4"}
+  resauce/resauce {:mvn/version "0.2.0"}
   ring/ring-core {:mvn/version "1.9.6"}}
  
  :aliases
