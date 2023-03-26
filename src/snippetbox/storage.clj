@@ -1,11 +1,12 @@
 (ns snippetbox.storage
-  (:require [java-time.api :as jt]
+  (:require [integrant.core :as ig]
+            [java-time.api :as jt]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as jdbc.date-time]))
 
-(defn connect [db]
+(defmethod ig/init-key :app/database [_ {:keys [connection-string]}]
   (jdbc.date-time/read-as-instant)
-  (jdbc/get-datasource db))
+  (jdbc/get-datasource connection-string))
 
 (defn snippet-create [conn {:keys [title content expires]}]
   (let [now (jt/instant)
@@ -42,13 +43,18 @@
 
 (comment
 
-  ;; connect to database
-  (def conn (connect "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"))
+  (def system
+    (-> "config.edn"
+        slurp
+        ig/read-string
+        (ig/init [:app/database])))
 
-  (snippet-create conn {:title "Foo" :content "A tale about foo" :expires 7})
-  (snippet-list conn (jt/instant) 3)
-  (snippet-read conn 1 (jt/instant))
-  (snippet-update conn {:id 1 :title "Bar" :content "update the content"})
-  (snippet-delete conn 1)
+  (ig/halt! system [:app/database])
+
+  (snippet-create (:app/database system) {:title "Foo" :content "A tale about foo" :expires 7})
+  (snippet-list (:app/database system) (jt/instant) 3)
+  (snippet-read (:app/database system) 1 (jt/instant))
+  (snippet-update (:app/database system) {:id 1 :title "Bar" :content "update the content"})
+  (snippet-delete (:app/database system) 1)
 
   :rcf)
