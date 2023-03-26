@@ -4,9 +4,6 @@
             [snippetbox.web])
   (:gen-class))
 
-;; TODO
-;; SQL query builder (honeysql)
-
 (defn -main [& args]
   (-> "config.edn"
       slurp

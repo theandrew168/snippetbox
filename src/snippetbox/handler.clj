@@ -6,7 +6,7 @@
             [snippetbox.validate :as validate]))
 
 (defn index [conn _]
-  (let [snippets (storage/snippet-list conn (jt/instant) 3)]
+  (let [snippets (storage/snippet-list conn 3 (jt/instant))]
     (response/ok (render/index snippets))))
 
 (defn view [conn req]
