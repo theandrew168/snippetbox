@@ -6,12 +6,12 @@
               [snippetbox.middleware :as middleware]
               [snippetbox.response :as response]))
 
-(defn routes [conn]
+(defn routes [storage]
   (c/routes
-   (c/GET "/" [] (partial handler/index conn))
-   (c/GET "/snippet/view/:id" [] (partial handler/view-snippet conn))
-   (c/GET "/snippet/create" [] (partial handler/create-snippet conn))
-   (c/POST "/snippet/create" [] (partial handler/create-snippet-form conn))
+   (c/GET "/" [] (partial handler/index storage))
+   (c/GET "/snippet/view/:id" [] (partial handler/view-snippet storage))
+   (c/GET "/snippet/create" [] (partial handler/create-snippet storage))
+   (c/POST "/snippet/create" [] (partial handler/create-snippet-form storage))
    (c/GET "/error" [] (fn [_] (response/internal-server-error)))
    (route/resources "/" {:root "public"})
    response/not-found))
