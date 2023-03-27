@@ -9,9 +9,9 @@
 (defn routes [conn]
   (c/routes
    (c/GET "/" [] (partial handler/index conn))
-   (c/GET "/snippet/view/:id" [] (partial handler/view conn))
-   (c/GET "/snippet/create" [] (partial handler/create conn))
-   (c/POST "/snippet/create" [] (partial handler/submit conn))
+   (c/GET "/snippet/view/:id" [] (partial handler/view-snippet conn))
+   (c/GET "/snippet/create" [] (partial handler/create-snippet conn))
+   (c/POST "/snippet/create" [] (partial handler/create-snippet-form conn))
    (c/GET "/error" [] (fn [_] (response/internal-server-error)))
    (route/resources "/" {:root "public"})
    response/not-found))

@@ -9,11 +9,8 @@
   (jdbc.date-time/read-as-instant)
   (jdbc/get-datasource connection-string))
 
-(defn snippet-create [conn {:keys [expires] :as snippet}]
-  (let [now (jt/instant)
-        expires (jt/plus now (jt/days expires))
-        snippet (merge snippet {:created now :expires expires})]
-    (jdbc/execute-one! conn (query/insert-snippet snippet))))
+(defn snippet-create [conn snippet]
+  (jdbc/execute-one! conn (query/insert-snippet snippet)))
 
 (defn snippet-list [conn n at]
   (jdbc/execute! conn (query/select-recent-snippets n at)))
@@ -31,7 +28,10 @@
 
   (ig/halt! system [:app/database])
 
-  (snippet-create (:app/database system) {:title "Foo" :content "A tale about foo" :expires 7})
+  (snippet-create (:app/database system) {:title "Foo"
+                                          :content "A tale about foo"
+                                          :created (jt/instant)
+                                          :expires (jt/instant)})
   (snippet-list (:app/database system) 3 (jt/instant))
   (snippet-read (:app/database system) 32 (jt/instant))
 

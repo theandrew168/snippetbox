@@ -11,7 +11,7 @@
         time (jt/format "kk:mm" utc)]
     (str date " at " time)))
 
-(defn page [title main]
+(defn- page [title main]
   (html/html5
    {:lang "en"}
    [:head
@@ -50,7 +50,7 @@
           [:td "#" (:snippet/id snippet)]])]
       [:p "There's nothing to see here... yet!"])]))
 
-(defn view [snippet]
+(defn view-snippet [snippet]
   (page
    (format "Snippet #%d" (:snippet/id snippet))
    [:main
@@ -64,7 +64,7 @@
       [:time "Created: " (human-date (:snippet/created snippet))]
       [:time "Expires: " (human-date (:snippet/expires snippet))]]]]))
 
-(defn create [{:keys [title content expires errors]}]
+(defn create-snippet [{:keys [title content expires errors]}]
   (page
    "Create a New Snippet"
    [:main
