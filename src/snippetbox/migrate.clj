@@ -40,9 +40,9 @@
     (jdbc/execute-one! tx [(slurp url)])
     (jdbc/execute-one! tx ["INSERT INTO migration (name) VALUES (?)" name])))
 
-(defn migrate! [conn dir]
+(defn migrate! [conn]
   (create-migration-table! conn)
-  (let [desired (desired-migrations dir)
+  (let [desired (desired-migrations "migrations")
         applied (applied-migrations conn)
         pending (pending-migrations desired applied)]
     (doall
@@ -61,7 +61,6 @@
    (applied-migrations "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"))
   
   (migrate!
-   "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"
-   "migrations")
+   "jdbc:postgresql://postgres:postgres@localhost:5432/postgres")
 
   :rcf)
