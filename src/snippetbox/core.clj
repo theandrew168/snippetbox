@@ -1,6 +1,7 @@
 (ns snippetbox.core
   (:require [com.stuartsierra.component :as component]
             [snippetbox.component.database :as database]
+            [snippetbox.component.migrate :as migrate]
             [snippetbox.component.server :as server])
   (:gen-class))
 
@@ -22,6 +23,9 @@
   (let [{:keys [uri port threads]} config]
     (component/system-map
      :database (database/map->Database {:uri uri})
+     :migration (component/using
+                 (migrate/map->Migrate {})
+                 [:database])
      :webserver (component/using
                  (server/map->Server {:port port :threads threads})
                  [:database]))))
