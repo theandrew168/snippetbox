@@ -2,17 +2,17 @@
   (:require [java-time.api :as jt]
             [snippetbox.render :as render]
             [snippetbox.response :as response]
-            [snippetbox.storage.snippet :as storage.snippet]
+            [snippetbox.store.snippet :as snippet-store]
             [snippetbox.validate :as validate]))
 
-(defn index [storage _]
-  (let [snippets (storage.snippet/list-recent (:snippet storage) 3 (jt/instant))]
+(defn index [store _]
+  (let [snippets (snippet-store/list-recent (:snippet store) 3 (jt/instant))]
     (response/ok (render/index snippets))))
 
-(defn view-snippet [storage req]
+(defn view-snippet [store req]
   (let [now (jt/instant)
         id (parse-long (-> req :params :id))
-        snippet (storage.snippet/read-by-id (:snippet storage) id now)]
+        snippet (snippet-store/read-by-id (:snippet store) id now)]
     (if snippet
       (response/ok (render/view-snippet snippet))
       (response/not-found req))))
@@ -26,7 +26,7 @@
         expires (jt/plus created (jt/days expires))]
     {:title title :content content :created created :expires expires}))
 
-(defn create-snippet-form [storage req]
+(defn create-snippet-form [store req]
   (let [params (:form-params req)
         form {:title (get params "title")
               :content (get params "content")
@@ -35,7 +35,7 @@
     (if (not-empty (:errors form))
       (response/unprocessable-content (render/create-snippet form))
       (let [snippet (form->snippet form)
-            res (storage.snippet/create (:snippet storage) snippet)
+            res (snippet-store/create (:snippet store) snippet)
             id (:snippet/id res)
             url (format "/snippet/view/%d" id)]
         (response/see-other url)))))

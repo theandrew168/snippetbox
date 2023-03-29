@@ -1,10 +1,10 @@
-(ns snippetbox.storage.snippet
+(ns snippetbox.store.snippet
   (:require [honey.sql :as sql]
             [honey.sql.helpers :as s]
             [java-time.api :as jt]
             [next.jdbc :as jdbc]))
 
-(defprotocol SnippetStorage
+(defprotocol SnippetStore
   (create [_ snippet])
   (read-by-id [_ id at])
   (list-recent [_ n at]))
@@ -30,8 +30,8 @@
       (s/returning :id)
       (sql/format)))
 
-(deftype PostgreSQLSnippetStorage [conn]
-  SnippetStorage
+(defrecord PostgreSQLSnippetStore [conn]
+  SnippetStore
   (create [_ snippet] (jdbc/execute-one! conn (insert snippet)))
   (read-by-id [_ id at] (jdbc/execute-one! conn (select-by-id id at)))
   (list-recent [_ n at] (jdbc/execute! conn (select-recent n at))))
@@ -43,13 +43,13 @@
   (select-recent 3 (jt/instant))
 
   (def conn "jdbc:postgresql://postgres:postgres@localhost:5432/postgres")
-  (def storage (->PostgreSQLSnippetStorage conn))
+  (def store (->PostgreSQLSnippetStore conn))
 
-  (create storage {:title "Foo"
-                   :content "A tale about foo"
-                   :created (jt/instant)
-                   :expires (jt/instant)})
-  (read-by-id storage 32 (jt/instant))
-  (list-recent storage 3 (jt/instant))
+  (create store {:title "Foo"
+                 :content "A tale about foo"
+                 :created (jt/instant)
+                 :expires (jt/instant)})
+  (read-by-id store 32 (jt/instant))
+  (list-recent store 3 (jt/instant))
 
   :rcf)
