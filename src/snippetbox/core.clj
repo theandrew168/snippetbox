@@ -1,10 +1,10 @@
 (ns snippetbox.core
-  (:require [integrant.core :as ig]
+  (:require [com.stuartsierra.component :as component]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as jdbc.date-time]
-            [org.httpkit.server :as httpd]
+            [org.httpkit.server :as httpkit]
             [snippetbox.routes :as routes]
-            [snippetbox.storage.snippet :as storage.snippet])
+            [snippetbox.storage.postgresql :as storage.postgresql])
   (:gen-class))
 
 ;; config - none (defaults in code + config.edn)
@@ -16,37 +16,52 @@
 ;; 2. The outbound type (no ID, possible conversions, usually rendered via html)
 ;; 3. The domain type (all data, raw, used by the app for internal processing)
 
-(defmethod ig/init-key :app/storage [_ {:keys [connection-string]}]
-  (jdbc.date-time/read-as-instant)
-  (-> (jdbc/get-datasource connection-string)
-      storage.snippet/->PostgreSQLSnippetStorage))
+(defrecord Database [connection uri]
+  component/Lifecycle
 
-;; TODO set default threads to 2xCPU but allow override via conf
-(defmethod ig/init-key :app/web [_ {:keys [port storage]}]
-  (println (format "Listening on port %s..." port))
-  (let [app (routes/apply-middleware (routes/routes storage))
-        n-cpu (.availableProcessors (Runtime/getRuntime))]
-    (httpd/run-server app {:ip "127.0.0.1"
-                           :port port
-                           :thread n-cpu})))
+  (start [this]
+    (jdbc.date-time/read-as-instant)
+    (let [conn (jdbc/get-datasource uri)]
+      (assoc this :connection conn)))
 
-(defmethod ig/halt-key! :app/web [_ server]
-  (server))
+  (stop [this]
+    (assoc this :connection nil)))
+
+(defrecord WebServer [server database port threads]
+  component/Lifecycle
+
+  (start [this]
+    (let [storage (storage.postgresql/init (:connection database))
+          app (routes/apply-middleware (routes/routes storage))
+          server (httpkit/run-server app {:ip "127.0.0.1" :port port :thread threads})]
+      (println (format "Listening on port %s..." port))
+      (assoc this :server server)))
+
+  (stop [this]
+    (server)
+    (assoc this :server nil)))
+
+(defn system [config]
+  (let [{:keys [uri port threads]} config]
+    (component/system-map
+     :database (map->Database {:uri uri})
+     :webserver (component/using
+                 (map->WebServer {:port port :threads threads})
+                 [:database]))))
+
+(defn default-config []
+  {:uri "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"
+   :port 5000
+   :threads (.availableProcessors (Runtime/getRuntime))})
 
 (defn -main [& args]
-  (-> "config.edn"
-      slurp
-      ig/read-string
-      ig/init))
+  (let [config (default-config)]
+    (component/start (system config))))
 
 (comment
 
-  (def system
-    (-> "config.edn"
-        slurp
-        ig/read-string
-        ig/init))
-  
-  (ig/halt! system)
+  (def sys (system (default-config)))
+  (alter-var-root #'sys component/start)
+  (alter-var-root #'sys component/stop)
 
   :rcf)

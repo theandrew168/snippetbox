@@ -1,2 +1,0 @@
-{:app/storage {:connection-string "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"}
- :app/web {:port 5000 :storage #ig/ref :app/storage}}

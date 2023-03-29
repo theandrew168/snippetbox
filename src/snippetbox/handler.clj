@@ -6,13 +6,13 @@
             [snippetbox.validate :as validate]))
 
 (defn index [storage _]
-  (let [snippets (storage.snippet/list-recent storage 3 (jt/instant))]
+  (let [snippets (storage.snippet/list-recent (:snippet storage) 3 (jt/instant))]
     (response/ok (render/index snippets))))
 
 (defn view-snippet [storage req]
   (let [now (jt/instant)
         id (parse-long (-> req :params :id))
-        snippet (storage.snippet/read-by-id storage id now)]
+        snippet (storage.snippet/read-by-id (:snippet storage) id now)]
     (if snippet
       (response/ok (render/view-snippet snippet))
       (response/not-found req))))
@@ -21,7 +21,7 @@
   (let [form {:expires 365}]
     (response/ok (render/create-snippet form))))
 
-(defn form->snippet [{:keys [title content expires]}]
+(defn- form->snippet [{:keys [title content expires]}]
   (let [created (jt/instant)
         expires (jt/plus created (jt/days expires))]
     {:title title :content content :created created :expires expires}))
@@ -35,7 +35,7 @@
     (if (not-empty (:errors form))
       (response/unprocessable-content (render/create-snippet form))
       (let [snippet (form->snippet form)
-            res (storage.snippet/create storage snippet)
+            res (storage.snippet/create (:snippet storage) snippet)
             id (:snippet/id res)
             url (format "/snippet/view/%d" id)]
         (response/see-other url)))))
