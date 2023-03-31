@@ -38,7 +38,12 @@
   (let [key (byte-array (util/hex->bytes secret-key))]
     (-> routes
         ring.params/wrap-params
-        (ring.session/wrap-session {:store (ring.cookie/cookie-store {:key key})})
+        (ring.session/wrap-session
+         {:store (ring.cookie/cookie-store {:key key})
+          :cookie-attrs {:max-age (* 7 24 60 60) ;; 7 days
+                         :secure true
+                         :http-only true
+                         :same-site :lax}})
         wrap-secure-headers
         wrap-access-log
         wrap-errors)))
