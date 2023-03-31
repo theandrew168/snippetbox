@@ -45,9 +45,8 @@
   (let [desired (desired-migrations "migrations")
         applied (applied-migrations conn)
         pending (pending-migrations desired applied)]
-    (doall
-     (for [migration (sort-by :name pending)]
-       (apply-migration! conn migration)))))
+    (doseq [migration (sort-by :name pending)]
+      (apply-migration! conn migration))))
 
 (comment
 
