@@ -26,8 +26,14 @@
      [:h1
       [:a {:href "/"} "Snippetbox"]]]
     [:nav
-     [:a {:href "/"} "Home"]
-     [:a {:href "/snippet/create"} "Create snippet"]]
+     [:div
+      [:a {:href "/"} "Home"]
+      [:a {:href "/snippet/create"} "Create snippet"]]
+     [:div
+      [:a {:href "/user/register"} "Register"]
+      [:a {:href "/user/login"} "Login"]
+      [:form {:method "POST" :action "/user/logout"}
+       [:button "Logout"]]]]
     main
     [:footer "Powered by " [:a {:href "https://clojure.org"} "Clojure"] " in " (current-year)]]))
 
@@ -70,7 +76,7 @@
   (page
    "Create a New Snippet"
    [:main
-    [:form {:action "/snippet/create" :method "POST"}
+    [:form {:method "POST" :action "/snippet/create"}
      [:div
       [:label "Title"]
       (when-let [error (:title errors)]
@@ -90,3 +96,26 @@
       [:input (merge {:type "radio" :name "expires" :value "1"} (when (= 1 expires) {:checked true})) " One Day"]]
      [:div
       [:input {:type "submit" :value "Publish snippet"}]]]]))
+
+(defn register [{:keys [name email errors]}]
+  (page
+   "Register"
+   [:main
+    [:form {:method "POST" :action "/user/register" :novalidate true}
+     [:div
+      [:label "Name:"]
+      (when-let [error (:name errors)]
+        [:label {:class "error"} error])
+      [:input {:type "text" :name "name" :value name}]]
+     [:div
+      [:label "Email:"]
+      (when-let [error (:email errors)]
+        [:label {:class "error"} error])
+      [:input {:type "email" :name "email" :value email}]]
+     [:div
+      [:label "Password:"]
+      (when-let [error (:password errors)]
+        [:label {:class "error"} error])
+      [:input {:type "password" :name "password"}]]
+     [:div
+      [:input {:type "submit" :value "Register"}]]]]))

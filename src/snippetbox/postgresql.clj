@@ -1,9 +1,11 @@
 (ns snippetbox.postgresql
-  (:require [honey.sql :as sql]
+  (:require [clojure.string]
+            [honey.sql :as sql]
             [honey.sql.helpers :as s]
             [java-time.api :as jt]
             [next.jdbc :as jdbc]
-            [snippetbox.storage :as storage]))
+            [snippetbox.storage :as storage])
+  (:import [org.postgresql.util PSQLException PSQLState]))
 
 (defn- create-snippet-query [snippet]
   (-> (s/insert-into :snippet)
@@ -26,11 +28,24 @@
       (s/limit n)
       (sql/format)))
 
+(defn- create-account-query [account]
+  (-> (s/insert-into :account)
+      (s/values [account])
+      (s/returning :id)
+      (sql/format)))
+
 (defrecord PostgreSQLStorage [conn]
   storage/Storage
   (create-snippet [_ snippet] (jdbc/execute-one! conn (create-snippet-query snippet)))
   (read-snippet-by-id [_ id at] (jdbc/execute-one! conn (read-snippet-by-id-query id at)))
-  (list-recent-snippets [_ n at] (jdbc/execute! conn (list-recent-snippets-query n at))))
+  (list-recent-snippets [_ n at] (jdbc/execute! conn (list-recent-snippets-query n at)))
+  (create-account [_ account]
+    (try
+      (jdbc/execute-one! conn (create-account-query account))
+      (catch PSQLException e
+        (if (= (.getSQLState e) (.getState PSQLState/UNIQUE_VIOLATION))
+          {:exists? true}
+          (throw e))))))
 
 (defn store [conn]
   (map->PostgreSQLStorage {:conn conn}))
@@ -40,6 +55,7 @@
   (create-snippet-query {:title "asdf" :content "wow" :created (jt/instant) :expires (jt/instant)})
   (read-snippet-by-id-query 4 (jt/instant))
   (list-recent-snippets-query 3 (jt/instant))
+  (create-account-query {:name "foo" :email "foo@example.com" :password "hashed" :created (jt/instant)})
 
   (def conn "jdbc:postgresql://postgres:postgres@localhost:5432/postgres")
   (def store (map->PostgreSQLStorage {:conn conn}))

@@ -14,8 +14,9 @@
 (defn see-other [url]
   (response 303 "See Other" {"Location" url}))
 
-(defn not-found [_]
-  (response 404 "Not Found" {"Content-Type" "text/html; charset=utf8"}))
+(defn not-found
+  ([] (not-found nil))
+  ([_] (response 404 "Not Found" {"Content-Type" "text/html; charset=utf8"})))
 
 (defn unprocessable-content [body]
   (response 422 body {"Content-Type" "text/html; charset=utf8"}))
