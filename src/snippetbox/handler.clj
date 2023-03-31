@@ -10,11 +10,16 @@
     (response/ok (render/index snippets))))
 
 (defn view-snippet [store req]
-  (let [now (jt/instant)
+  (let [session (:session req)
+        flash (:flash session)
+        now (jt/instant)
         id (parse-long (-> req :params :id))
         snippet (storage/read-snippet-by-id store id now)]
     (if snippet
-      (response/ok (render/view-snippet snippet))
+      (let [session (assoc session :flash nil)]
+        (-> (render/view-snippet snippet flash)
+            response/ok
+            (assoc :session session)))
       (response/not-found req))))
 
 (defn create-snippet [_ _]
@@ -27,7 +32,8 @@
     {:title title :content content :created created :expires expires}))
 
 (defn create-snippet-form [store req]
-  (let [params (:form-params req)
+  (let [session (:session req)
+        params (:form-params req)
         form {:title (get params "title")
               :content (get params "content")
               :expires (parse-long (get params "expires"))}
@@ -37,8 +43,10 @@
       (let [snippet (form->snippet form)
             res (storage/create-snippet store snippet)
             id (:snippet/id res)
-            url (format "/snippet/view/%d" id)]
-        (response/see-other url)))))
+            url (format "/snippet/view/%d" id)
+            session (assoc session :flash "Snippet successfully created!")]
+        (-> (response/see-other url)
+            (assoc :session session))))))
 
 (defn session-test [{session :session}]
   (let [count   (:count session 0)

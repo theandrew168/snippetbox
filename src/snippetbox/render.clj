@@ -50,10 +50,12 @@
           [:td "#" (:snippet/id snippet)]])]
       [:p "There's nothing to see here... yet!"])]))
 
-(defn view-snippet [snippet]
+(defn view-snippet [snippet flash]
   (page
    (format "Snippet #%d" (:snippet/id snippet))
    [:main
+    (when flash
+      [:div {:class "flash"} flash])
     [:div {:class "snippet"}
      [:div {:class "metadata"}
       [:strong (:snippet/title snippet)]
