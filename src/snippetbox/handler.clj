@@ -48,8 +48,17 @@
         (-> (response/see-other url)
             (assoc :session session))))))
 
-(defn session-test [{session :session}]
-  (let [count   (:count session 0)
-        session (assoc session :count (inc count))]
-    (-> (response/ok (str "You accessed this page " count " times."))
-        (assoc :session session))))
+(defn register [store req]
+  (response/ok "TODO"))
+
+(defn register-form [store req]
+  (response/ok "TODO"))
+
+(defn login [store req]
+  (response/ok "TODO"))
+
+(defn login-form [store req]
+  (response/ok "TODO"))
+
+(defn logout-form [store req]
+  (response/ok "TODO"))
