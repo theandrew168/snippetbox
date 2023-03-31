@@ -1,8 +1,12 @@
 (ns snippetbox.middleware
   (:require [clojure.repl :refer [pst]]
             [clojure.string :refer [upper-case]]
+            [ring.middleware.params :as ring.params]
+            [ring.middleware.session :as ring.session]
+            [ring.middleware.session.cookie :as ring.cookie]
             [ring.util.request :as ring.request]
-            [snippetbox.response :as response]))
+            [snippetbox.response :as response]
+            [snippetbox.util :as util]))
 
 (defn wrap-secure-headers [handler]
   (let [headers {"Referrer-Policy" "origin-when-cross-origin"
@@ -29,3 +33,12 @@
            (do
              (pst e)
              (response/internal-server-error))))))
+
+(defn apply-middleware [routes secret-key]
+  (let [key (byte-array (util/hex->bytes secret-key))]
+    (-> routes
+        ring.params/wrap-params
+        (ring.session/wrap-session {:store (ring.cookie/cookie-store {:key key})})
+        wrap-secure-headers
+        wrap-access-log
+        wrap-errors)))
