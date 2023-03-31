@@ -4,12 +4,12 @@
             [snippetbox.routes :as routes]
             [snippetbox.postgresql :as postgresql]))
 
-(defrecord Server [server database port threads]
+(defrecord Server [server database secret-key port threads]
   component/Lifecycle
 
   (start [this]
     (let [store (postgresql/store (:conn database))
-          app (routes/apply-middleware (routes/routes store))
+          app (routes/apply-middleware (routes/routes store) secret-key)
           server (httpkit/run-server app {:ip "127.0.0.1" :port port :thread threads})]
       (println (format "Listening on port %s..." port))
       (assoc this :server server)))

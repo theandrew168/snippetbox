@@ -39,3 +39,9 @@
             id (:snippet/id res)
             url (format "/snippet/view/%d" id)]
         (response/see-other url)))))
+
+(defn session-test [{session :session}]
+  (let [count   (:count session 0)
+        session (assoc session :count (inc count))]
+    (-> (response/ok (str "You accessed this page " count " times."))
+        (assoc :session session))))

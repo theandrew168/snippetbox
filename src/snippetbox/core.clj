@@ -11,19 +11,20 @@
 ;; 3. The domain type (all data, raw, used by the app for internal processing)
 
 (defn default-config []
-  {:uri "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"
+  {:database-uri "jdbc:postgresql://postgres:postgres@localhost:5432/postgres"
+   :secret-key "28548351a2d4b500a6ff94d72c6d3f1e"
    :port 5000
    :threads (.availableProcessors (Runtime/getRuntime))})
 
 (defn system [config]
-  (let [{:keys [uri port threads]} config]
+  (let [{:keys [database-uri secret-key port threads]} config]
     (component/system-map
-     :database (database/map->Database {:uri uri})
+     :database (database/map->Database {:uri database-uri})
      :migration (component/using
                  (migrate/map->Migrate {})
                  [:database])
      :webserver (component/using
-                 (server/map->Server {:port port :threads threads})
+                 (server/map->Server {:secret-key secret-key :port port :threads threads})
                  [:database]))))
 
 (defn -main [& args]

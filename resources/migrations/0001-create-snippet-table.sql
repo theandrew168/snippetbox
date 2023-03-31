@@ -5,3 +5,5 @@ CREATE TABLE IF NOT EXISTS snippet (
     created TIMESTAMPTZ NOT NULL,
     expires TIMESTAMPTZ NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS snippet_created_idx ON snippet(created);
