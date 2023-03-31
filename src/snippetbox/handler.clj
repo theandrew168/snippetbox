@@ -1,6 +1,6 @@
 (ns snippetbox.handler
-  (:require [java-time.api :as jt]
-            [snippetbox.bcrypt :as bcrypt]
+  (:require [crypto.password.bcrypt :as bcrypt]
+            [java-time.api :as jt]
             [snippetbox.render :as render]
             [snippetbox.response :as response]
             [snippetbox.storage :as storage]
@@ -88,8 +88,14 @@
             (-> (response/see-other "/user/login")
                 (assoc :session session))))))))
 
-(defn login [store req]
-  (response/ok "TODO: login form!"))
+(defn login [_ {:keys [session]}]
+  (let [flash (:flash session)
+        session (assoc session :flash nil)
+        form {}]
+    (-> form
+        (render/login flash)
+        response/ok
+        (assoc :session session))))
 
 (defn login-form [store req]
   (response/ok "TODO"))
