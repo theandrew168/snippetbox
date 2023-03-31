@@ -3,13 +3,13 @@
             [next.jdbc :as jdbc]
             [next.jdbc.date-time :as jdbc.date-time]))
 
-(defrecord Database [connection uri]
+(defrecord Database [conn uri]
   component/Lifecycle
 
   (start [this]
     (jdbc.date-time/read-as-instant)
     (let [conn (jdbc/get-datasource uri)]
-      (assoc this :connection conn)))
+      (assoc this :conn conn)))
 
   (stop [this]
-    (assoc this :connection nil)))
+    (assoc this :conn nil)))

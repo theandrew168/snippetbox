@@ -2,17 +2,17 @@
   (:require [java-time.api :as jt]
             [snippetbox.render :as render]
             [snippetbox.response :as response]
-            [snippetbox.store.snippet :as snippet-store]
+            [snippetbox.storage :as storage]
             [snippetbox.validate :as validate]))
 
 (defn index [store _]
-  (let [snippets (snippet-store/list-recent (:snippet store) 3 (jt/instant))]
+  (let [snippets (storage/list-recent-snippets store 3 (jt/instant))]
     (response/ok (render/index snippets))))
 
 (defn view-snippet [store req]
   (let [now (jt/instant)
         id (parse-long (-> req :params :id))
-        snippet (snippet-store/read-by-id (:snippet store) id now)]
+        snippet (storage/read-snippet-by-id store id now)]
     (if snippet
       (response/ok (render/view-snippet snippet))
       (response/not-found req))))
@@ -35,7 +35,7 @@
     (if (not-empty (:errors form))
       (response/unprocessable-content (render/create-snippet form))
       (let [snippet (form->snippet form)
-            res (snippet-store/create (:snippet store) snippet)
+            res (storage/create-snippet store snippet)
             id (:snippet/id res)
             url (format "/snippet/view/%d" id)]
         (response/see-other url)))))

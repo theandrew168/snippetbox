@@ -6,7 +6,7 @@
   component/Lifecycle
 
   (start [this]
-    (let [conn (:connection database)]
+    (let [conn (:conn database)]
       (println (format "Applying migrations..."))
       (migrate/migrate! conn)
       this))
