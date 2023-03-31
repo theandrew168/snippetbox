@@ -22,6 +22,12 @@
       (field :password not-empty "This field cannot be blank")
       (field :password #(>= (count %) 8) "This field must be at least 8 characters long")))
 
+(defn login-form [form]
+  (-> form
+      (field :email not-empty "This field cannot be blank")
+      (field :email #(re-matches #".+\@.+\..+" %) "This field must be a valid email address")
+      (field :password not-empty "This field cannot be blank")))
+
 (comment
 
   (field {:title ""} :title not-empty "must not be empty")

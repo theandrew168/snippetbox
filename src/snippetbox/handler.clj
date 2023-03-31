@@ -97,8 +97,22 @@
         response/ok
         (assoc :session session))))
 
-(defn login-form [store req]
-  (response/ok "TODO"))
+(defn login-form [store {:keys [form-params]}]
+  (let [form {:email (get form-params "email")
+              :password (get form-params "password")}
+        form (validate/login-form form)]
+    (if (not-empty (:errors form))
+      (-> form
+          render/login
+          response/unprocessable-content)
+      (let [account (storage/read-account-by-email store (:email form))]
+        (if (and account (bcrypt/check (:password form) (:account/password account)))
+          (-> (response/see-other "/snippet/create")
+              (assoc-in [:session :account-id] (:account/id account)))
+          (-> form
+              (update-in [:errors :errors] #(conj % "Email or password is incorrect"))
+              render/login
+              (response/unprocessable-content)))))))
 
 (defn logout-form [store req]
   (response/ok "TODO"))

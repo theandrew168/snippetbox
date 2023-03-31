@@ -120,24 +120,26 @@
      [:div
       [:input {:type "submit" :value "Register"}]]]]))
 
-(defn login [{:keys [email errors]} flash]
-  (page
-   "Login"
-   [:main
-    (when flash
-      [:div {:class "flash"} flash])
-    [:form {:method "POST" :action "/user/login" :novalidate true}
-     (doseq [error (:errors errors)]
-       [:div {:class "error"} error])
-     [:div
-      [:label "Email:"]
-      (when-let [error (:email errors)]
-        [:label {:class "error"} error])
-      [:input {:type "email" :name "email" :value email}]]
-     [:div
-      [:label "Password:"]
-      (when-let [error (:password errors)]
-        [:label {:class "error"} error])
-      [:input {:type "password" :name "password"}]]
-     [:div
-      [:input {:type "submit" :value "Login"}]]]]))
+(defn login
+  ([form] (login form nil))
+  ([{:keys [email errors]} flash]
+   (page
+    "Login"
+    [:main
+     (when flash
+       [:div {:class "flash"} flash])
+     [:form {:method "POST" :action "/user/login" :novalidate true}
+      (for [error (:errors errors)]
+        [:div {:class "error"} error])
+      [:div
+       [:label "Email:"]
+       (when-let [error (:email errors)]
+         [:label {:class "error"} error])
+       [:input {:type "email" :name "email" :value email}]]
+      [:div
+       [:label "Password:"]
+       (when-let [error (:password errors)]
+         [:label {:class "error"} error])
+       [:input {:type "password" :name "password"}]]
+      [:div
+       [:input {:type "submit" :value "Login"}]]]])))

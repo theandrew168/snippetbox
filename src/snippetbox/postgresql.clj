@@ -34,6 +34,12 @@
       (s/returning :id)
       (sql/format)))
 
+(defn- read-account-by-email-query [email]
+  (-> (s/select :id :name :email :password :created)
+      (s/from :account)
+      (s/where [:= :account.email email])
+      (sql/format)))
+
 (defrecord PostgreSQLStorage [conn]
   storage/Storage
   (create-snippet [_ snippet] (jdbc/execute-one! conn (create-snippet-query snippet)))
@@ -45,7 +51,8 @@
       (catch PSQLException e
         (if (= (.getSQLState e) (.getState PSQLState/UNIQUE_VIOLATION))
           {:exists? true}
-          (throw e))))))
+          (throw e)))))
+  (read-account-by-email [_ email] (jdbc/execute-one! conn (read-account-by-email-query email))))
 
 (defn store [conn]
   (map->PostgreSQLStorage {:conn conn}))

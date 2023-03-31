@@ -4,4 +4,5 @@
   (create-snippet [_ snippet])
   (read-snippet-by-id [_ id at])
   (list-recent-snippets [_ n at])
-  (create-account [_ account]))
+  (create-account [_ account])
+  (read-account-by-email [_ email]))
