@@ -18,7 +18,7 @@ migrate:
 
 .PHONY: test
 test:
-	@echo 'TODO: run tests'
+	clj -M:test
 
 .PHONY: clean
 clean:

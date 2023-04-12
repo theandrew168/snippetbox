@@ -12,8 +12,12 @@
   org.postgresql/postgresql {:mvn/version "42.5.4"}
   resauce/resauce {:mvn/version "0.2.0"}
   ring/ring-core {:mvn/version "1.9.6"}}
- 
+
  :aliases
  {:run {:main-opts ["-m" "snippetbox.core"]}
   :build {:deps {io.github.clojure/tools.build {:mvn/version "0.9.3"}}
-          :ns-default build}}}
+          :ns-default build}
+  :test {:extra-paths ["test"]
+         :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}}}
